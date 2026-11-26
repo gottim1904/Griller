@@ -65,7 +65,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     {id:'garen',name:'Garen',tag:'Hauptphase',tagc:'#7AD9A3',dist:450,desc:'Mit Abstand zur Flamme, das Fleisch gart gleichmäßig durch.'},
     {id:'knusprig',name:'Knusprig',tag:'Zum Schluss',tagc:'#FFB27F',dist:220,desc:'Am Ende wieder nah an die Flamme für die knusprige Kruste.'}
   ];
-  var s = {started:false,pigD:300,tab:'grill',burnerOn:true,hub:250,spin:true,speed:2,target:82,program:'garen',simSpeed:1,phase:'run',angle:0};
+  var s = {started:false,pigD:300,tab:'grill',burnerOn:false,hub:300,hubTarget:null,spin:true,speed:2,target:82,program:'',simSpeed:1,phase:'run',angle:0};
   var core = 20, hist = [20], dir = 1;
   var STAGES = [
     {body:'#F2A5B5',acc:'#E88CA0',leg:'#D9798F',belly:'#E693A6',hi:'#F9C6D1',sn:'#F4A9B8',ch:'#F28FA3',ear:'#F8BCC8',dk:'#5E3A47',dk2:'#6E4552'},
@@ -122,6 +122,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     o+='<text x="675" y="945" text-anchor="middle" font-size="40" fill="#B8A99B">vorne</text>';
     return o+'</svg>';
   }
+  function progTarget(id){ var p = PROGRAMS.filter(function(x){return x.id===id;})[0]; return clamp(p.dist - OFFSET + s.pigD/2, 0, 300); }
   function updateLive(){
     var hd=document.getElementById('pigHead'); if(hd) hd.innerHTML = pigSvg(300,140,76,false,pigProg());
     var tv=document.getElementById('topView'); if(tv) tv.innerHTML = topView();
@@ -198,7 +199,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
       +'<div class="row"><div class="txt">Ferkel Ø '+s.pigD+' mm</div><button class="btn" style="height:44px;font-size:14px" data-a="setup">Ändern</button></div></div>';
     var sp = '';
     [1,2,3].forEach(function(v){ sp += '<button class="btn'+(s.speed===v?' sel':'')+'" style="height:48px;font-size:14px;padding:0" data-a="speed" data-v="'+v+'">'+v+' U/min</button>'; });
-    var spinTxt = s.phase==='run' ? s.speed+' U/min' : s.phase==='finish' ? 'Letzte Umdrehung …' : s.phase==='move' ? 'Fährt in Endlage …' : 'Entnahmeposition';
+    var spinTxt = s.phase==='run' ? s.speed+' U/min' : s.phase==='finish' ? 'Fährt weg …' : s.phase==='move' ? 'Fährt in Endlage …' : 'Entnahmeposition';
     var busy = s.phase==='finish' || s.phase==='move';
     h += '<div class="card"><div class="row"><div><div class="lbl">Drehspieß</div><div style="font-size:20px;font-weight:700">'+spinTxt+'</div></div>'
       +'<button class="btn'+(s.phase==='parked'?' ok':'')+'" style="min-width:112px;height:48px;font-weight:700;font-size:15px" data-a="spin"'+(busy?' disabled':'')+'>'+(s.phase==='run'?'Stopp':busy?'Stopp läuft':'Start')+'</button></div><div class="grid3">'+sp+'</div>'
@@ -271,8 +272,8 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     else if(a==='tdn'){ s.target = clamp(s.target-1,60,95); }
     else if(a==='tup'){ s.target = clamp(s.target+1,60,95); }
     else if(a==='burner'){ s.burnerOn = !s.burnerOn; }
-    else if(a==='closer'){ if(s.phase==='run'){ s.hub = clamp(s.hub-20,0,300); s.program=''; } }
-    else if(a==='farther'){ if(s.phase==='run'||s.phase==='parked'){ s.hub = clamp(s.hub+20,0,300); s.program=''; } }
+    else if(a==='closer'){ if(s.phase==='run'){ s.hubTarget=null; s.hub = clamp(s.hub-20,0,300); s.program=''; } }
+    else if(a==='farther'){ if(s.phase==='run'||s.phase==='parked'){ s.hubTarget=null; s.hub = clamp(s.hub+20,0,300); s.program=''; } }
     else if(a==='spin'){ if(s.phase==='run'){ s.phase='finish'; } else if(s.phase==='parked'){ s.phase='run'; s.spin=true; } }
     else if(a==='speed'){ s.speed = Number(v); }
     else if(a==='tab'){ s.tab = v; }
@@ -281,7 +282,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     else if(a==='prog'){
       var p = PROGRAMS.filter(function(x){return x.id===v;})[0];
       if(s.phase==='finish'||s.phase==='move'){ s.tab='grill'; }
-      else { s.program = p.id; s.hub = clamp(p.dist - OFFSET + s.pigD/2, 0, 300); s.burnerOn = true; s.phase='run'; s.spin=true; s.tab='grill'; }
+      else { s.program = p.id; s.hubTarget = progTarget(p.id); s.burnerOn = true; s.phase='run'; s.spin=true; s.tab='grill'; }
     }
     render();
   });
@@ -289,14 +290,28 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     if(e.target && e.target.id==='simSl'){ core = Number(e.target.value); hist.push(core); if(hist.length>240) hist.shift(); updateLive(); }
   });
   app.addEventListener('change', function(e){
-    if(e.target && e.target.id==='burnerSw'){ s.burnerOn = e.target.value==='1'; render(); }
+    if(e.target && e.target.id==='burnerSw'){
+      s.burnerOn = e.target.value==='1';
+      if(s.burnerOn){ if(s.phase==='parked'){ s.phase='run'; s.spin=true; } if(s.phase==='run'){ s.program='garen'; s.hubTarget = progTarget('garen'); } }
+      render();
+    }
   });
   setInterval(function(){
     if(!s.started) return;
     var changed = false;
-    if(s.phase==='run'){ s.angle = (s.angle + 6*s.speed*s.simSpeed) % 360; }
-    else if(s.phase==='finish'){ s.angle += 6*s.speed*s.simSpeed; if(s.angle>=360){ s.angle = 0; s.phase='move'; s.spin=false; changed=true; } }
-    else if(s.phase==='move'){ s.hub = Math.min(300, s.hub + 15*s.simSpeed); s.program=''; changed=true; if(s.hub>=300){ s.phase='parked'; } }
+    if(s.phase==='run'){
+      s.angle = (s.angle + 6*s.speed*s.simSpeed) % 360;
+      if(s.hubTarget!==null){
+        var dh = s.hubTarget - s.hub, st = 15*s.simSpeed;
+        if(Math.abs(dh)<=st){ s.hub = s.hubTarget; s.hubTarget = null; } else s.hub += dh>0 ? st : -st;
+        changed = true;
+      }
+    }
+    else if(s.phase==='finish'){
+      if(s.angle<360) s.angle += 6*s.speed*s.simSpeed;
+      s.hub = Math.min(300, s.hub + 15*s.simSpeed); s.program=''; changed=true;
+      if(s.angle>=360 && s.hub>=300){ s.angle=0; s.phase='parked'; s.spin=false; }
+    }
     if(s.burnerOn){ core += dir*2*s.simSpeed; if(core>=100){ core=100; dir=-1; } else if(core<=20){ core=20; dir=1; } } else core = Math.max(20, core-0.05);
     hist.push(core); if(hist.length>240) hist.shift();
     updateLive();
