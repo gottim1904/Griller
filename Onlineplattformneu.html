@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14110F">
-<title>Spanferkelgriller Steuerung</title>
+<title>PigSpin Steuerung</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;background:#14110F}
@@ -12,6 +12,7 @@ body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;colo
 button{font-family:inherit;cursor:pointer;color:#F4EDE6}
 #app{max-width:430px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;background:#14110F}
 header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 12px}
+h1.logo{display:flex;align-items:center;gap:10px;font-size:30px;font-weight:800;letter-spacing:-0.03em;font-family:Montserrat,Poppins,Arial,sans-serif}h1.logo b{color:#FF6B2C;font-weight:800}
 h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-0.01em}
 .sub{font-size:13px;color:#B8A99B;margin-top:2px}
 .chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#2A2218;color:#FFB27F;font-size:12px;font-weight:600}
@@ -49,6 +50,8 @@ nav button.cur{background:#2B2420;color:#FF9A66}
 .sw::-webkit-slider-thumb{-webkit-appearance:none;width:48px;height:48px;margin-top:6px;border-radius:50%;background:#F4EDE6;border:0;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .sw::-moz-range-track{height:60px;background:transparent}
 .sw::-moz-range-thumb{width:48px;height:48px;border-radius:50%;background:#F4EDE6;border:0}
+input[type=range]:not(.sw){accent-color:#FF7A3D;width:100%;height:32px;margin:0}
+button:disabled{opacity:.4;cursor:default}
 button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
 </style>
 </head>
@@ -62,8 +65,8 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     {id:'garen',name:'Garen',tag:'Hauptphase',tagc:'#7AD9A3',dist:450,desc:'Mit Abstand zur Flamme, das Fleisch gart gleichmäßig durch.'},
     {id:'knusprig',name:'Knusprig',tag:'Zum Schluss',tagc:'#FFB27F',dist:220,desc:'Am Ende wieder nah an die Flamme für die knusprige Kruste.'}
   ];
-  var s = {started:false,pigD:300,tab:'grill',burnerOn:true,hub:250,spin:true,speed:2,target:82,program:'garen'};
-  var core = 20, hist = [20];
+  var s = {started:false,pigD:300,tab:'grill',burnerOn:true,hub:250,spin:true,speed:2,target:82,program:'garen',simSpeed:1,phase:'run',angle:0};
+  var core = 20, hist = [20], dir = 1;
   var STAGES = [
     {body:'#F2A5B5',acc:'#E88CA0',leg:'#D9798F',belly:'#E693A6',hi:'#F9C6D1',sn:'#F4A9B8',ch:'#F28FA3',ear:'#F8BCC8',dk:'#5E3A47',dk2:'#6E4552'},
     {body:'#E8821E',acc:'#C4601A',leg:'#A84E14',belly:'#C96A18',hi:'#F5A94A',sn:'#F09A3C',ch:'#D9701C',ear:'#F2B05E',dk:'#3A2113',dk2:'#4A2A18'},
@@ -93,8 +96,37 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     else { for(var i=0;i<n;i++){ pts.push((i/(n-1)*320).toFixed(1)+','+yOf(hist[i]).toFixed(1)); } }
     return {pts:pts.join(' '), x:320, y:yOf(hist[n-1]).toFixed(1)};
   }
+  function topView(){
+    var d=s.pigD, r=d/2, y=OFFSET+s.hub, c=pal(pigProg()), skin=y-r, f=clamp(d,200,400)/300;
+    var o='<svg viewBox="-30 -90 1410 1040" width="100%" role="img" aria-label="Draufsicht auf den Griller mit Ferkel, Abstand zwischen Flamme und Haut '+skin+' mm" style="display:block">';
+    o+='<rect x="0" y="0" width="1350" height="900" rx="30" fill="#1A1512" stroke="#5A4C42" stroke-width="10"/>';
+    o+='<rect x="120" y="40" width="1110" height="820" rx="20" fill="#2B2420"/>';
+    o+='<rect x="100" y="-62" width="1150" height="62" rx="14" fill="'+(s.burnerOn?'#FF7A3D':'#5A4C42')+'"/>';
+    o+='<text x="675" y="-16" text-anchor="middle" font-size="44" font-weight="700" fill="'+(s.burnerOn?'#14110F':'#D2C4B7')+'">Brenner</text>';
+    if(s.burnerOn){ for(var x=170;x<=1180;x+=100){ o+='<path d="M'+(x-28)+',4 Q'+x+',120 '+(x+28)+',4 Z" fill="#FFC857"/><path d="M'+(x-14)+',4 Q'+x+',60 '+(x+14)+',4 Z" fill="#FFF1B8"/>'; } }
+    [38,1312].forEach(function(x){ o+='<rect x="'+(x-10)+'" y="'+OFFSET+'" width="20" height="300" rx="6" fill="#4A3F38"/><rect x="'+(x-30)+'" y="'+(y-34)+'" width="60" height="68" rx="10" fill="#F4EDE6"/>'; });
+    o+='<rect x="60" y="'+(y-9)+'" width="1230" height="18" rx="7" fill="#B8A99B"/>';
+    o+='<path d="M1055,'+y+' q70,-10 40,-70 q-30,-40 -55,5" fill="none" stroke="'+c.acc+'" stroke-width="16" stroke-linecap="round"/>';
+    o+='<ellipse cx="700" cy="'+y+'" rx="365" ry="'+r+'" fill="'+c.body+'"/>';
+    o+='<ellipse cx="690" cy="'+(y-r*0.35)+'" rx="300" ry="'+(r*0.22)+'" fill="'+c.hi+'" opacity=".7"/>';
+    o+='<ellipse cx="690" cy="'+(y+r*0.45)+'" rx="320" ry="'+(r*0.3)+'" fill="'+c.belly+'" opacity=".55"/>';
+    var hx=330, hy=y;
+    o+='<ellipse cx="'+(hx+40)+'" cy="'+(hy-72*f)+'" rx="44" ry="'+(34*f)+'" fill="'+c.acc+'"/><ellipse cx="'+(hx+40)+'" cy="'+(hy+72*f)+'" rx="44" ry="'+(34*f)+'" fill="'+c.acc+'"/>';
+    o+='<ellipse cx="'+hx+'" cy="'+hy+'" rx="'+(105*f)+'" ry="'+(80*f)+'" fill="'+c.body+'"/>';
+    o+='<ellipse cx="'+(hx-105*f-20)+'" cy="'+hy+'" rx="'+(50*f)+'" ry="'+(40*f)+'" fill="'+c.acc+'"/><ellipse cx="'+(hx-105*f-40*f-8)+'" cy="'+hy+'" rx="'+(14*f)+'" ry="'+(30*f)+'" fill="'+c.sn+'"/>';
+    o+='<circle cx="'+(hx-105*f-24)+'" cy="'+(hy-14*f)+'" r="'+(7*f)+'" fill="'+c.dk+'"/><circle cx="'+(hx-105*f-24)+'" cy="'+(hy+14*f)+'" r="'+(7*f)+'" fill="'+c.dk+'"/>';
+    o+='<circle cx="'+(hx-40*f)+'" cy="'+(hy-58*f)+'" r="'+(11*f)+'" fill="'+c.dk+'"/><circle cx="'+(hx-40*f)+'" cy="'+(hy+58*f)+'" r="'+(11*f)+'" fill="'+c.dk+'"/>';
+    var ty=y-r;
+    o+='<g stroke="#F4EDE6" stroke-width="7"><line x1="700" y1="8" x2="700" y2="'+(ty-8)+'"/><line x1="676" y1="8" x2="724" y2="8"/><line x1="676" y1="'+(ty-8)+'" x2="724" y2="'+(ty-8)+'"/></g>';
+    o+='<text x="740" y="'+(ty/2+20)+'" font-size="60" font-weight="700" fill="#F4EDE6">'+skin+' mm</text>';
+    o+='<text x="675" y="945" text-anchor="middle" font-size="40" fill="#B8A99B">vorne</text>';
+    return o+'</svg>';
+  }
   function updateLive(){
-    var hd=document.getElementById('pigHead'); if(hd) hd.innerHTML = pigSvg(300,108,59,false,pigProg());
+    var hd=document.getElementById('pigHead'); if(hd) hd.innerHTML = pigSvg(300,140,76,false,pigProg());
+    var tv=document.getElementById('topView'); if(tv) tv.innerHTML = topView();
+    var sl=document.getElementById('simSl'); if(sl && document.activeElement!==sl) sl.value=core;
+    var st=document.getElementById('simTxt'); if(st) st.textContent=core.toFixed(1).replace('.',',')+' °C';
     var ct=document.getElementById('coreTxt'); if(!ct) return;
     ct.textContent = core.toFixed(1).replace('.',',');
     var cb=document.getElementById('coreBar'); if(cb) cb.style.width = Math.round(clamp(core/s.target,0,1)*100)+'%';
@@ -160,15 +192,18 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
       +'<div class="scale" style="font-size:14px;font-weight:600"><span>← Aus</span><span>An →</span></div>'
       +'<div class="note">Schieber nach rechts: Brenner an. Nach links: Brenner aus. Die Hitze am Ferkel stellst du über den Abstand zur Flamme ein.</div></div>';
     h += '<div class="card"><div class="row" style="align-items:baseline"><div class="lbl">Abstand Flamme → Haut</div><div style="font-size:24px;font-weight:700">'+skin+' mm</div></div>'
-      +'<div class="note">Spießmitte '+(OFFSET+s.hub)+' mm − Ferkelradius '+radius+' mm. Der Antrieb steht bei '+s.hub+' mm Hub.</div>'
-      +'<div class="track"><div class="f"></div><div class="k" style="left:'+Math.round(s.hub/300*88)+'%"></div></div>'
-      +'<div class="scale"><span>Flamme</span><span>beide Antriebe gekoppelt</span><span>weit</span></div>'
-      +'<div class="grid2"><button class="btn" data-a="closer">← Näher</button><button class="btn" data-a="farther">Weiter →</button></div>'
+      +'<div id="topView">'+topView()+'</div>'
+      +'<div class="note">Draufsicht. Spießmitte '+(OFFSET+s.hub)+' mm − Ferkelradius '+radius+' mm. Der Antrieb steht bei '+s.hub+' mm Hub, beide Antriebe sind gekoppelt.</div>'
+      +'<div class="grid2"><button class="btn" data-a="closer"'+(s.phase!=='run'?' disabled':'')+'>← Näher</button><button class="btn" data-a="farther"'+((s.phase==='finish'||s.phase==='move'||s.hub>=300)?' disabled':'')+'>Weiter →</button></div>'
       +'<div class="row"><div class="txt">Ferkel Ø '+s.pigD+' mm</div><button class="btn" style="height:44px;font-size:14px" data-a="setup">Ändern</button></div></div>';
     var sp = '';
     [1,2,3].forEach(function(v){ sp += '<button class="btn'+(s.speed===v?' sel':'')+'" style="height:48px;font-size:14px;padding:0" data-a="speed" data-v="'+v+'">'+v+' U/min</button>'; });
-    h += '<div class="card"><div class="row"><div><div class="lbl">Drehspieß</div><div style="font-size:20px;font-weight:700">'+(s.spin?s.speed+' U/min':'Steht')+'</div></div>'
-      +'<button class="btn'+(s.spin?'':' ok')+'" style="min-width:112px;height:48px;font-weight:700;font-size:15px" data-a="spin">'+(s.spin?'Stopp':'Start')+'</button></div><div class="grid3">'+sp+'</div></div>';
+    var spinTxt = s.phase==='run' ? s.speed+' U/min' : s.phase==='finish' ? 'Letzte Umdrehung …' : s.phase==='move' ? 'Fährt in Endlage …' : 'Entnahmeposition';
+    var busy = s.phase==='finish' || s.phase==='move';
+    h += '<div class="card"><div class="row"><div><div class="lbl">Drehspieß</div><div style="font-size:20px;font-weight:700">'+spinTxt+'</div></div>'
+      +'<button class="btn'+(s.phase==='parked'?' ok':'')+'" style="min-width:112px;height:48px;font-weight:700;font-size:15px" data-a="spin"'+(busy?' disabled':'')+'>'+(s.phase==='run'?'Stopp':busy?'Stopp läuft':'Start')+'</button></div><div class="grid3">'+sp+'</div>'
+      +'<div class="note">Mit „Stopp“ dreht der Spieß die laufende Umdrehung fertig, fährt ganz weg vom Brenner und bleibt dort stehen. So kannst du ihn herausnehmen.</div>'
+      +(s.phase==='parked'?'<div class="note" style="color:#7AD9A3;font-weight:600">Der Spieß steht in der äußersten Endlage und kann entnommen werden.</div>':'')+'</div>';
     h += '<div class="note" style="text-align:center;padding:0 8px 4px">Der Not-Aus am Schaltschrank bleibt immer der Hardware-Taster. Bricht die Verbindung ab, schließt das Gasventil.</div>';
     return h;
   }
@@ -192,6 +227,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
       ['Not-Aus Schaltschrank','Nicht gedrückt','#7AD9A3'],
       ['Gasventil',s.burnerOn?'Offen':'Geschlossen',s.burnerOn?'#FFB27F':'#7AD9A3'],
       ['Kernthermometer','Bluetooth, Akku 84 %','#7AD9A3'],
+      ['Drehspieß',s.phase==='run'?'Dreht, '+s.speed+' U/min':s.phase==='parked'?'Entnahmeposition':'Fährt in Endlage','#F4EDE6'],
       ['Antrieb links',s.hub+' mm','#F4EDE6'],
       ['Antrieb rechts',s.hub+' mm','#F4EDE6'],
       ['Antriebsspannung','24 V','#F4EDE6']
@@ -199,7 +235,14 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     var h = '<div class="card" style="padding:6px 18px;gap:0">';
     rows.forEach(function(r){ h += '<div class="sysrow"><span>'+r[0]+'</span><b style="color:'+r[2]+'">'+r[1]+'</b></div>'; });
     h += '</div><div class="card" style="gap:8px"><div style="font-size:15px;font-weight:700">Sicherer Zustand</div><div class="txt">Bricht die Verbindung zum Handy ab, schließt das Gasventil, der Brenner geht aus und die Antriebe bleiben stehen. Der Not-Aus am Schaltschrank wirkt unabhängig von dieser Oberfläche.</div></div>'
-      +'<div class="card" style="gap:8px"><div style="font-size:15px;font-weight:700">Demo</div><div class="txt">Diese Seite zeigt den Entwurf der Bedienoberfläche mit Beispielwerten. Sie steuert keinen echten Griller. Die Kerntemperatur steigt hier nur simuliert, damit sich das Ferkel oben färbt. Die Werte der Programme und der Abstand von Brenner zu Spießmitte sind Platzhalter.</div></div>';
+      +'<div class="card" style="gap:12px"><div style="font-size:15px;font-weight:700">Demo-Simulation</div>'
+      +'<div class="txt">Diese Seite zeigt den Entwurf mit Beispielwerten und steuert keinen echten Griller. Die Kerntemperatur steigt hier nur simuliert, und das Ferkel oben färbt sich mit. Mit dem Schieber stellst du die Temperatur selbst ein, mit den Knöpfen änderst du die Geschwindigkeit.</div>'
+      +'<div class="row"><div class="lbl">Kerntemperatur</div><div id="simTxt" style="font-size:20px;font-weight:700">'+core.toFixed(1).replace('.',',')+' °C</div></div>'
+      +'<input type="range" id="simSl" min="20" max="100" step="0.5" value="'+core+'" aria-label="Kerntemperatur für die Simulation einstellen">'
+      +'<div class="scale"><span>20 °C</span><span>Ziel '+s.target+' °C</span><span>100 °C</span></div>'
+      +'<div class="grid3">'+[1,5,20].map(function(v){return '<button class="btn'+(s.simSpeed===v?' sel':'')+'" style="height:48px;font-size:14px;padding:0" data-a="simspeed" data-v="'+v+'">'+v+'×</button>';}).join('')+'</div>'
+      +'<button class="btn" data-a="simreset">Zurück auf 20 °C (roh)</button>'
+      +'<div class="note">Der Brenner muss an sein, damit die Temperatur steigt. Die Programmwerte und der Abstand von Brenner zu Spießmitte sind Platzhalter.</div></div>';
     return h;
   }
 
@@ -214,7 +257,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     }
     var status = (s.burnerOn?'Brenner läuft':'Brenner aus')+' · Spieß '+(s.spin?'dreht':'steht');
     var keep = app.querySelector('main') ? app.querySelector('main').scrollTop : 0;
-    app.innerHTML = '<header><div><h1>Spanferkelgriller</h1><div class="sub">'+status+'</div></div><div id="pigHead" style="flex-shrink:0">'+pigSvg(300,108,59,false,pigProg())+'</div></header><main>'+body+'</main>'+nav;
+    app.innerHTML = '<header><div><h1 class="logo" aria-label="PigSpin"><svg viewBox="0 0 500 500" width="46" height="46" aria-hidden="true" style="flex-shrink:0"><circle cx="250" cy="250" r="230" fill="#232844"/><path d="M298.7 68.4 A188 188 0 1 1 73.3 185.7" fill="none" stroke="#FF6B2C" stroke-width="22" stroke-linecap="round"/><polygon points="88.4,144.4 41.4,174.1 105.3,197.3" fill="#FF6B2C"/><polygon points="148,205 158,128 228,176" fill="#F7A8B8"/><polygon points="352,205 342,128 272,176" fill="#F7A8B8"/><polygon points="162,190 167,148 204,176" fill="#E47E95"/><polygon points="338,190 333,148 296,176" fill="#E47E95"/><ellipse cx="250" cy="262" rx="108" ry="100" fill="#FFB9C8"/><ellipse cx="250" cy="298" rx="50" ry="36" fill="#F48CA5"/><ellipse cx="232" cy="298" rx="8" ry="13" fill="#14182B"/><ellipse cx="268" cy="298" rx="8" ry="13" fill="#14182B"/><circle cx="208" cy="237" r="11" fill="#14182B"/><circle cx="292" cy="237" r="11" fill="#14182B"/><circle cx="211" cy="233" r="3.5" fill="#fff"/><circle cx="295" cy="233" r="3.5" fill="#fff"/></svg><span>Pig<b>Spin</b></span></h1><div class="sub">'+status+'</div></div><div id="pigHead" style="flex-shrink:0">'+pigSvg(300,140,76,false,pigProg())+'</div></header><main>'+body+'</main>'+nav;
     var m = app.querySelector('main'); if (m) m.scrollTop = keep;
   }
 
@@ -228,25 +271,36 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     else if(a==='tdn'){ s.target = clamp(s.target-1,60,95); }
     else if(a==='tup'){ s.target = clamp(s.target+1,60,95); }
     else if(a==='burner'){ s.burnerOn = !s.burnerOn; }
-    else if(a==='closer'){ s.hub = clamp(s.hub-20,0,300); s.program=''; }
-    else if(a==='farther'){ s.hub = clamp(s.hub+20,0,300); s.program=''; }
-    else if(a==='spin'){ s.spin = !s.spin; }
+    else if(a==='closer'){ if(s.phase==='run'){ s.hub = clamp(s.hub-20,0,300); s.program=''; } }
+    else if(a==='farther'){ if(s.phase==='run'||s.phase==='parked'){ s.hub = clamp(s.hub+20,0,300); s.program=''; } }
+    else if(a==='spin'){ if(s.phase==='run'){ s.phase='finish'; } else if(s.phase==='parked'){ s.phase='run'; s.spin=true; } }
     else if(a==='speed'){ s.speed = Number(v); }
     else if(a==='tab'){ s.tab = v; }
+    else if(a==='simspeed'){ s.simSpeed = Number(v); }
+    else if(a==='simreset'){ core = 20; hist = [20]; dir = 1; }
     else if(a==='prog'){
       var p = PROGRAMS.filter(function(x){return x.id===v;})[0];
-      s.program = p.id; s.hub = clamp(p.dist - OFFSET + s.pigD/2, 0, 300); s.burnerOn = true; s.tab='grill';
+      if(s.phase==='finish'||s.phase==='move'){ s.tab='grill'; }
+      else { s.program = p.id; s.hub = clamp(p.dist - OFFSET + s.pigD/2, 0, 300); s.burnerOn = true; s.phase='run'; s.spin=true; s.tab='grill'; }
     }
     render();
+  });
+  app.addEventListener('input', function(e){
+    if(e.target && e.target.id==='simSl'){ core = Number(e.target.value); hist.push(core); if(hist.length>240) hist.shift(); updateLive(); }
   });
   app.addEventListener('change', function(e){
     if(e.target && e.target.id==='burnerSw'){ s.burnerOn = e.target.value==='1'; render(); }
   });
   setInterval(function(){
     if(!s.started) return;
-    if(s.burnerOn) core = Math.min(100, core+0.6); else core = Math.max(20, core-0.05);
+    var changed = false;
+    if(s.phase==='run'){ s.angle = (s.angle + 6*s.speed*s.simSpeed) % 360; }
+    else if(s.phase==='finish'){ s.angle += 6*s.speed*s.simSpeed; if(s.angle>=360){ s.angle = 0; s.phase='move'; s.spin=false; changed=true; } }
+    else if(s.phase==='move'){ s.hub = Math.min(300, s.hub + 15*s.simSpeed); s.program=''; changed=true; if(s.hub>=300){ s.phase='parked'; } }
+    if(s.burnerOn){ core += dir*2*s.simSpeed; if(core>=100){ core=100; dir=-1; } else if(core<=20){ core=20; dir=1; } } else core = Math.max(20, core-0.05);
     hist.push(core); if(hist.length>240) hist.shift();
     updateLive();
+    if(changed && (s.tab!=='sys' || !document.activeElement || document.activeElement.id!=='simSl')) render();
   }, 1000);
   render();
 })();
