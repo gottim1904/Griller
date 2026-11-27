@@ -65,7 +65,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     {id:'garen',name:'Garen',tag:'Hauptphase',tagc:'#7AD9A3',dist:450,desc:'Mit Abstand zur Flamme, das Fleisch gart gleichmäßig durch.'},
     {id:'knusprig',name:'Knusprig',tag:'Zum Schluss',tagc:'#FFB27F',dist:220,desc:'Am Ende wieder nah an die Flamme für die knusprige Kruste.'}
   ];
-  var s = {started:false,pigD:300,tab:'grill',burnerOn:false,hub:300,hubTarget:null,spin:true,speed:2,target:82,program:'',simSpeed:1,phase:'run',angle:0};
+  var s = {welcome:true,started:false,pigD:300,tab:'grill',burnerOn:false,hub:300,hubTarget:null,spin:true,speed:2,target:82,program:'',simSpeed:1,phase:'run',angle:0};
   var core = 20, hist = [20], dir = 1;
   var STAGES = [
     {body:'#F2A5B5',acc:'#E88CA0',leg:'#D9798F',belly:'#E693A6',hi:'#F9C6D1',sn:'#F4A9B8',ch:'#F28FA3',ear:'#F8BCC8',dk:'#5E3A47',dk2:'#6E4552'},
@@ -247,7 +247,15 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     return h;
   }
 
+  function welcomeView(){
+    return '<div style="min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:32px 24px;text-align:center">'
+      +'<div style="font-size:clamp(28px,10.5vw,52px);white-space:nowrap;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#B8A99B">Welcome to</div>'
+      +'<svg viewBox="0 0 500 500" width="300" height="300" aria-hidden="true"><circle cx="250" cy="250" r="230" fill="#232844"/><path d="M298.7 68.4 A188 188 0 1 1 73.3 185.7" fill="none" stroke="#FF6B2C" stroke-width="22" stroke-linecap="round"/><polygon points="88.4,144.4 41.4,174.1 105.3,197.3" fill="#FF6B2C"/><polygon points="148,205 158,128 228,176" fill="#F7A8B8"/><polygon points="352,205 342,128 272,176" fill="#F7A8B8"/><polygon points="162,190 167,148 204,176" fill="#E47E95"/><polygon points="338,190 333,148 296,176" fill="#E47E95"/><ellipse cx="250" cy="262" rx="108" ry="100" fill="#FFB9C8"/><ellipse cx="250" cy="298" rx="50" ry="36" fill="#F48CA5"/><ellipse cx="232" cy="298" rx="8" ry="13" fill="#14182B"/><ellipse cx="268" cy="298" rx="8" ry="13" fill="#14182B"/><circle cx="208" cy="237" r="11" fill="#14182B"/><circle cx="292" cy="237" r="11" fill="#14182B"/><circle cx="211" cy="233" r="3.5" fill="#fff"/><circle cx="295" cy="233" r="3.5" fill="#fff"/></svg>'
+      +'<div style="font-family:Montserrat,Poppins,Arial,sans-serif;font-size:76px;font-weight:800;letter-spacing:-0.03em;color:#F4EDE6">Pig<span style="color:#FF6B2C">Spin</span></div>'
+      +'<button class="btn ok" style="margin-top:28px;min-width:280px;height:72px;font-size:24px;font-weight:700" data-a="enter">Los geht\u2019s</button></div>';
+  }
   function render(){
+    if(s.welcome){ app.innerHTML = welcomeView(); return; }
     var body = !s.started ? setupView() : (s.tab==='grill'?grillView():s.tab==='prog'?progView():sysView());
     var nav = '';
     if (s.started) {
@@ -267,6 +275,7 @@ button:focus-visible{outline:3px solid #FF9A66;outline-offset:2px}
     var a = b.getAttribute('data-a'), v = b.getAttribute('data-v');
     if(a==='pigdn'){ s.pigD = clamp(s.pigD-10,200,400); s.program=''; }
     else if(a==='pigup'){ s.pigD = clamp(s.pigD+10,200,400); s.program=''; }
+    else if(a==='enter'){ s.welcome=false; }
     else if(a==='start'){ s.started=true; s.tab='grill'; }
     else if(a==='setup'){ s.started=false; }
     else if(a==='tdn'){ s.target = clamp(s.target-1,60,95); }
